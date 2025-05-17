@@ -3,16 +3,16 @@ import { createClient } from '@supabase/supabase-js';
 import { UserAuth } from './dto/user-auth.dto';
 import { ProfileDTO } from './dto/profile.dto';
 import { UpdateProfileDTO } from './dto/update-profile.dto';
+import { SupabaseService } from 'src/supabase/supabase.service';
 
 @Injectable()
 export class AuthService {
-  supabaseUrl = 'https://osinraajqvksoggeoeja.supabase.co';
-  supabaseKey = process.env.SUPABASE_KEY!;
-
-  supabase = createClient(this.supabaseUrl, this.supabaseKey!);
+  constructor(private supabaseService: SupabaseService) {}
 
   async login(userAuth: UserAuth) {
-    let { data, error } = await this.supabase.auth.signInWithPassword({
+    let supabase = this.supabaseService.createClient();
+
+    let { data, error } = await supabase.auth.signInWithPassword({
       email: userAuth.email,
       password: userAuth.password,
     });
@@ -21,22 +21,24 @@ export class AuthService {
       return error;
     }
 
-    let profile = await this.supabase
+    let profile = await supabase
       .from('profiles')
-      .select('id')
+      .select()
       .eq('id', data.user?.id);
 
     if (profile.data?.length != 0) {
-      return profile;
+      return { data, profile };
     }
 
     return { message: 'first time login', data };
   }
 
   async signup(userAuth: UserAuth) {
+    let supabase = this.supabaseService.createClient();
+
     console.log(userAuth);
 
-    let { data, error } = await this.supabase.auth.signUp({
+    let { data, error } = await supabase.auth.signUp({
       email: userAuth.email,
       password: userAuth.password,
     });
@@ -49,7 +51,9 @@ export class AuthService {
   }
 
   async logout() {
-    let { error } = await this.supabase.auth.signOut();
+    let supabase = this.supabaseService.createClient();
+
+    let { error } = await supabase.auth.signOut();
 
     if (error) {
       return error;
@@ -58,9 +62,11 @@ export class AuthService {
   }
 
   async getProfile() {
+    let supabase = this.supabaseService.createClient();
+
     const {
       data: { user },
-    } = await this.supabase.auth.getUser();
+    } = await supabase.auth.getUser();
 
     if (user) {
       return user;
@@ -70,17 +76,19 @@ export class AuthService {
   }
 
   async updateProfile(updateProfile: UpdateProfileDTO) {
+    let supabase = this.supabaseService.createClient();
+
     const {
       data: { user },
-    } = await this.supabase.auth.getUser();
+    } = await supabase.auth.getUser();
 
-    let profile = await this.supabase.from('profiles').select();
+    let profile = await supabase.from('profiles').select();
 
     console.log(profile);
 
     if (!profile) {
       console.log('No Profile');
-      const data = await this.supabase.from('profiles').insert({
+      const data = await supabase.from('profiles').insert({
         id: user?.id,
         username: updateProfile.username,
       });
@@ -97,14 +105,14 @@ export class AuthService {
     let data: any = null;
 
     if (updateProfile.isAnonymous == undefined) {
-      data = await this.supabase
+      data = await supabase
         .from('profiles')
         .update({
           username: updateProfile.username,
         })
         .eq('id', user?.id);
     } else {
-      data = await this.supabase
+      data = await supabase
         .from('profiles')
         .update({
           username: updateProfile.username,
